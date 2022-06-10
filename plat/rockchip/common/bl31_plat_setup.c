@@ -61,10 +61,13 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 
 	params_early_setup(arg1);
 
-	if (rockchip_get_uart_base() != 0)
+	if (rockchip_get_uart_base() != 0) {
 		console_16550_register(rockchip_get_uart_base(),
 				       rockchip_get_uart_clock(),
 				       rockchip_get_uart_baudrate(), &console);
+		console_set_scope(&console,
+				  CONSOLE_FLAG_BOOT | CONSOLE_FLAG_RUNTIME | CONSOLE_FLAG_CRASH);
+	}
 
 	VERBOSE("bl31_setup\n");
 
