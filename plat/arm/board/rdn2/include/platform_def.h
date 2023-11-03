@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020-2023, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,7 +8,7 @@
 #define PLATFORM_DEF_H
 
 #include <lib/utils_def.h>
-
+#include <sgi_sdei.h>
 #include <sgi_soc_platform_def_v2.h>
 
 #if (CSS_SGI_PLATFORM_VARIANT == 1)
@@ -69,14 +69,15 @@
  */
 #ifdef __aarch64__
 #if (CSS_SGI_PLATFORM_VARIANT == 2)
+#define CSS_SGI_ADDR_BITS_PER_CHIP	U(46)	/* 64TB */
+#else
+#define CSS_SGI_ADDR_BITS_PER_CHIP	U(42)	/* 4TB */
+#endif
+
 #define PLAT_PHY_ADDR_SPACE_SIZE	CSS_SGI_REMOTE_CHIP_MEM_OFFSET( \
 						CSS_SGI_CHIP_COUNT)
 #define PLAT_VIRT_ADDR_SPACE_SIZE	CSS_SGI_REMOTE_CHIP_MEM_OFFSET( \
 						CSS_SGI_CHIP_COUNT)
-#else
-#define PLAT_PHY_ADDR_SPACE_SIZE	(1ULL << 42)
-#define PLAT_VIRT_ADDR_SPACE_SIZE	(1ULL << 42)
-#endif
 #else
 #define PLAT_PHY_ADDR_SPACE_SIZE	(1ULL << 32)
 #define PLAT_VIRT_ADDR_SPACE_SIZE	(1ULL << 32)
@@ -91,8 +92,35 @@
 
 #if (CSS_SGI_PLATFORM_VARIANT == 1)
 #define PLAT_ARM_GICR_BASE		UL(0x30100000)
+#elif (CSS_SGI_PLATFORM_VARIANT == 3)
+#define PLAT_ARM_GICR_BASE		UL(0x30300000)
 #else
 #define PLAT_ARM_GICR_BASE		UL(0x301C0000)
 #endif
+
+/* Interrupt priority level for shutdown/reboot */
+#define PLAT_REBOOT_PRI		GIC_HIGHEST_SEC_PRIORITY
+#define PLAT_EHF_DESC		EHF_PRI_DESC(PLAT_PRI_BITS, PLAT_REBOOT_PRI)
+
+/*
+ * Number of Secure Partitions supported.
+ * SPMC at EL3, uses this count to configure the maximum number of supported
+ * secure partitions.
+ */
+#define SECURE_PARTITION_COUNT          1
+
+/*
+ * Number of NWd Partitions supported.
+ * SPMC at EL3, uses this count to configure the maximum number of supported
+ * nwld partitions.
+ */
+#define NS_PARTITION_COUNT              1
+
+/*
+ * Number of Logical Partitions supported.
+ * SPMC at EL3, uses this count to configure the maximum number of supported
+ * logical partitions.
+ */
+#define MAX_EL3_LP_DESCS_COUNT		1
 
 #endif /* PLATFORM_DEF_H */

@@ -15,6 +15,12 @@ include lib/xlat_tables_v2/xlat_tables.mk
 # Include GICv3 driver files
 include drivers/arm/gic/v3/gicv3.mk
 
+IMX_DRAM_SOURCES	:=	plat/imx/imx8m/ddr/dram.c		\
+				plat/imx/imx8m/ddr/clock.c		\
+				plat/imx/imx8m/ddr/dram_retention.c	\
+				plat/imx/imx8m/ddr/ddr4_dvfs.c		\
+				plat/imx/imx8m/ddr/lpddr4_dvfs.c
+
 IMX_GIC_SOURCES		:=	${GICV3_SOURCES}			\
 				plat/common/plat_gicv3.c		\
 				plat/common/plat_psci_common.c		\
@@ -22,11 +28,14 @@ IMX_GIC_SOURCES		:=	${GICV3_SOURCES}			\
 
 BL31_SOURCES		+=	plat/imx/common/imx8_helpers.S			\
 				plat/imx/imx8m/gpc_common.c			\
+				plat/imx/imx8m/imx_hab.c			\
 				plat/imx/imx8m/imx_aipstz.c			\
 				plat/imx/imx8m/imx_rdc.c			\
 				plat/imx/imx8m/imx8m_caam.c			\
+				plat/imx/imx8m/imx8m_ccm.c			\
 				plat/imx/imx8m/imx8m_csu.c			\
 				plat/imx/imx8m/imx8m_psci_common.c		\
+				plat/imx/imx8m/imx8m_snvs.c			\
 				plat/imx/imx8m/imx8mp/imx8mp_bl31_setup.c	\
 				plat/imx/imx8m/imx8mp/imx8mp_psci.c		\
 				plat/imx/imx8m/imx8mp/gpc.c			\
@@ -38,6 +47,7 @@ BL31_SOURCES		+=	plat/imx/common/imx8_helpers.S			\
 				drivers/arm/tzc/tzc380.c			\
 				drivers/delay_timer/delay_timer.c		\
 				drivers/delay_timer/generic_delay_timer.c	\
+				${IMX_DRAM_SOURCES}				\
 				${IMX_GIC_SOURCES}				\
 				${XLAT_TABLES_LIB_SRCS}
 
@@ -90,7 +100,7 @@ ifeq (${NEED_BL2},yes)
 $(eval $(call add_define,NEED_BL2))
 LOAD_IMAGE_V2		:=	1
 # Non-TF Boot ROM
-BL2_AT_EL3		:=	1
+RESET_TO_BL2		:=	1
 endif
 
 ifneq (${TRUSTED_BOARD_BOOT},0)
@@ -122,15 +132,16 @@ certificates: $(ROT_KEY)
 $(ROT_KEY): | $(BUILD_PLAT)
 	@echo "  OPENSSL $@"
 	@if [ ! -f $(ROT_KEY) ]; then \
-		openssl genrsa 2048 > $@ 2>/dev/null; \
+		${OPENSSL_BIN_PATH}/openssl genrsa 2048 > $@ 2>/dev/null; \
 	fi
 
 $(ROTPK_HASH): $(ROT_KEY)
 	@echo "  OPENSSL $@"
-	$(Q)openssl rsa -in $< -pubout -outform DER 2>/dev/null |\
-	openssl dgst -sha256 -binary > $@ 2>/dev/null
+	$(Q)${OPENSSL_BIN_PATH}/openssl rsa -in $< -pubout -outform DER 2>/dev/null |\
+	${OPENSSL_BIN_PATH}/openssl dgst -sha256 -binary > $@ 2>/dev/null
 endif
 
+ENABLE_PIE		:=	1
 USE_COHERENT_MEM	:=	1
 RESET_TO_BL31		:=	1
 A53_DISABLE_NON_TEMPORAL_HINT := 0
@@ -146,6 +157,9 @@ BL32_SIZE		?=	0x2000000
 $(eval $(call add_define,BL32_SIZE))
 
 IMX_BOOT_UART_BASE	?=	0x30890000
+ifeq (${IMX_BOOT_UART_BASE},auto)
+    override IMX_BOOT_UART_BASE	:=	0
+endif
 $(eval $(call add_define,IMX_BOOT_UART_BASE))
 
 EL3_EXCEPTION_HANDLING := $(SDEI_SUPPORT)

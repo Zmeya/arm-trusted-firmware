@@ -1,27 +1,29 @@
 /*
- * Copyright (c) 2018-2021, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2021, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2022-2023, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
-#include <plat_arm.h>
-#include <plat_private.h>
-#include <pm_common.h>
+
 #include <common/debug.h>
 #include <lib/mmio.h>
 #include <lib/psci/psci.h>
-#include <plat/common/platform.h>
 #include <plat/arm/common/plat_arm.h>
+#include <plat/common/platform.h>
+#include <plat_arm.h>
 
+#include <plat_private.h>
 #include "pm_api_sys.h"
 #include "pm_client.h"
+#include <pm_common.h>
 
 static uintptr_t versal_sec_entry;
 
-static int versal_pwr_domain_on(u_register_t mpidr)
+static int32_t versal_pwr_domain_on(u_register_t mpidr)
 {
-	int cpu_id = plat_core_pos_by_mpidr(mpidr);
+	int32_t cpu_id = plat_core_pos_by_mpidr(mpidr);
 	const struct pm_proc *proc;
 
 	VERBOSE("%s: mpidr: 0x%lx\n", __func__, mpidr);
@@ -30,7 +32,7 @@ static int versal_pwr_domain_on(u_register_t mpidr)
 		return PSCI_E_INTERN_FAIL;
 	}
 
-	proc = pm_get_proc((unsigned int)cpu_id);
+	proc = pm_get_proc((uint32_t)cpu_id);
 
 	/* Send request to PMC to wake up selected ACPU core */
 	(void)pm_req_wakeup(proc->node_id, (versal_sec_entry & 0xFFFFFFFFU) | 0x1U,
@@ -44,14 +46,14 @@ static int versal_pwr_domain_on(u_register_t mpidr)
 
 /**
  * versal_pwr_domain_suspend() - This function sends request to PMC to suspend
- * core.
+ *                               core.
+ * @target_state: Targated state.
  *
- * @target_state	Targated state
  */
 static void versal_pwr_domain_suspend(const psci_power_state_t *target_state)
 {
-	unsigned int state;
-	unsigned int cpu_id = plat_my_core_pos();
+	uint32_t state;
+	uint32_t cpu_id = plat_my_core_pos();
 	const struct pm_proc *proc = pm_get_proc(cpu_id);
 
 	for (size_t i = 0U; i <= PLAT_MAX_PWR_LVL; i++) {
@@ -81,14 +83,14 @@ static void versal_pwr_domain_suspend(const psci_power_state_t *target_state)
 
 /**
  * versal_pwr_domain_suspend_finish() - This function performs actions to finish
- * suspend procedure.
+ *                                      suspend procedure.
+ * @target_state: Targated state.
  *
- * @target_state	Targated state
  */
 static void versal_pwr_domain_suspend_finish(
 					const psci_power_state_t *target_state)
 {
-	unsigned int cpu_id = plat_my_core_pos();
+	uint32_t cpu_id = plat_my_core_pos();
 	const struct pm_proc *proc = pm_get_proc(cpu_id);
 
 	for (size_t i = 0U; i <= PLAT_MAX_PWR_LVL; i++) {
@@ -120,8 +122,9 @@ void versal_pwr_domain_on_finish(const psci_power_state_t *target_state)
 }
 
 /**
- * versal_system_off() - This function sends the system off request
- * to firmware.  This function does not return.
+ * versal_system_off() - This function sends the system off request to firmware.
+ *                       This function does not return.
+ *
  */
 static void __dead2 versal_system_off(void)
 {
@@ -135,8 +138,10 @@ static void __dead2 versal_system_off(void)
 }
 
 /**
- * versal_system_reset() - This function sends the reset request
- * to firmware for the system to reset.  This function does not return.
+ * versal_system_reset() - This function sends the reset request to firmware
+ *                         for the system to reset.  This function does not
+ *			   return.
+ *
  */
 static void __dead2 versal_system_reset(void)
 {
@@ -150,13 +155,13 @@ static void __dead2 versal_system_reset(void)
 }
 
 /**
- * versal_pwr_domain_off() - This function performs actions to turn off core
+ * versal_pwr_domain_off() - This function performs actions to turn off core.
+ * @target_state: Targated state.
  *
- * @target_state	Targated state
  */
 static void versal_pwr_domain_off(const psci_power_state_t *target_state)
 {
-	unsigned int cpu_id = plat_my_core_pos();
+	uint32_t cpu_id = plat_my_core_pos();
 	const struct pm_proc *proc = pm_get_proc(cpu_id);
 
 	for (size_t i = 0U; i <= PLAT_MAX_PWR_LVL; i++) {
@@ -181,19 +186,19 @@ static void versal_pwr_domain_off(const psci_power_state_t *target_state)
 
 /**
  * versal_validate_power_state() - This function ensures that the power state
- * parameter in request is valid.
+ *                                 parameter in request is valid.
+ * @power_state: Power state of core.
+ * @req_state: Requested state.
  *
- * @power_state		Power state of core
- * @req_state		Requested state
+ * Return: Returns status, either success or reason.
  *
- * @return	Returns status, either success or reason
  */
-static int versal_validate_power_state(unsigned int power_state,
+static int32_t versal_validate_power_state(uint32_t power_state,
 				       psci_power_state_t *req_state)
 {
 	VERBOSE("%s: power_state: 0x%x\n", __func__, power_state);
 
-	unsigned int pstate = psci_get_pstate_type(power_state);
+	uint32_t pstate = psci_get_pstate_type(power_state);
 
 	assert(req_state);
 
@@ -213,9 +218,9 @@ static int versal_validate_power_state(unsigned int power_state,
 }
 
 /**
- * versal_get_sys_suspend_power_state() -  Get power state for system suspend
+ * versal_get_sys_suspend_power_state() - Get power state for system suspend.
+ * @req_state: Requested state.
  *
- * @req_state	Requested state
  */
 static void versal_get_sys_suspend_power_state(psci_power_state_t *req_state)
 {
@@ -238,7 +243,7 @@ static const struct plat_psci_ops versal_nopmc_psci_ops = {
 /*******************************************************************************
  * Export the platform specific power ops.
  ******************************************************************************/
-int plat_setup_psci_ops(uintptr_t sec_entrypoint,
+int32_t plat_setup_psci_ops(uintptr_t sec_entrypoint,
 			const struct plat_psci_ops **psci_ops)
 {
 	versal_sec_entry = sec_entrypoint;

@@ -1,18 +1,28 @@
 /*
- * Copyright (c) 2021-2022, Arm Limited. All rights reserved.
+ * Copyright (c) 2021-2023, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <stdint.h>
 
+#include <common/tbbr/tbbr_img_def.h>
 #include <drivers/measured_boot/event_log/event_log.h>
 #include <drivers/measured_boot/rss/rss_measured_boot.h>
+#if defined(ARM_COT_cca)
+#include <tools_share/cca_oid.h>
+#else
 #include <tools_share/tbbr_oid.h>
+#endif /* ARM_COT_cca */
 #include <fvp_critical_data.h>
 
 #include <plat/arm/common/plat_arm.h>
 #include <plat/common/common_def.h>
+
+#if defined(SPD_tspd) || defined(SPD_opteed) || defined(SPD_spmd)
+CASSERT(ARM_EVENT_LOG_DRAM1_SIZE >= PLAT_ARM_EVENT_LOG_MAX_SIZE, \
+	assert_res_eventlog_mem_insufficient);
+#endif /* defined(SPD_tspd) || defined(SPD_opteed) || defined(SPD_spmd) */
 
 /* Event Log data */
 static uint64_t event_log_base;
@@ -31,6 +41,17 @@ const event_log_metadata_t fvp_event_log_metadata[] = {
 	{ TOS_FW_CONFIG_ID, EVLOG_TOS_FW_CONFIG_STRING, PCR_0 },
 	{ RMM_IMAGE_ID, EVLOG_RMM_STRING, PCR_0},
 
+#if defined(SPD_spmd)
+	{ SP_PKG1_ID, EVLOG_SP1_STRING, PCR_0 },
+	{ SP_PKG2_ID, EVLOG_SP2_STRING, PCR_0 },
+	{ SP_PKG3_ID, EVLOG_SP3_STRING, PCR_0 },
+	{ SP_PKG4_ID, EVLOG_SP4_STRING, PCR_0 },
+	{ SP_PKG5_ID, EVLOG_SP5_STRING, PCR_0 },
+	{ SP_PKG6_ID, EVLOG_SP6_STRING, PCR_0 },
+	{ SP_PKG7_ID, EVLOG_SP7_STRING, PCR_0 },
+	{ SP_PKG8_ID, EVLOG_SP8_STRING, PCR_0 },
+#endif
+
 	{ CRITICAL_DATA_ID, EVLOG_CRITICAL_DATA_STRING, PCR_1 },
 
 	{ EVLOG_INVALID_ID, NULL, (unsigned int)(-1) }	/* Terminator */
@@ -45,25 +66,31 @@ struct rss_mboot_metadata fvp_rss_mboot_metadata[] = {
 		.slot = U(9),
 		.signer_id_size = SIGNER_ID_MIN_SIZE,
 		.sw_type = RSS_MBOOT_BL31_STRING,
+		.pk_oid = BL31_IMAGE_KEY_OID,
 		.lock_measurement = true },
 	{
 		.id = HW_CONFIG_ID,
 		.slot = U(10),
 		.signer_id_size = SIGNER_ID_MIN_SIZE,
 		.sw_type = RSS_MBOOT_HW_CONFIG_STRING,
+		.pk_oid = HW_CONFIG_KEY_OID,
 		.lock_measurement = true },
 	{
 		.id = SOC_FW_CONFIG_ID,
 		.slot = U(11),
 		.signer_id_size = SIGNER_ID_MIN_SIZE,
 		.sw_type = RSS_MBOOT_SOC_FW_CONFIG_STRING,
+		.pk_oid = SOC_FW_CONFIG_KEY_OID,
 		.lock_measurement = true },
+#if ENABLE_RME
 	{
 		.id = RMM_IMAGE_ID,
 		.slot = U(12),
 		.signer_id_size = SIGNER_ID_MIN_SIZE,
 		.sw_type = RSS_MBOOT_RMM_STRING,
+		.pk_oid = RMM_IMAGE_KEY_OID,
 		.lock_measurement = true },
+#endif /* ENABLE_RME */
 	{
 		.id = RSS_MBOOT_INVALID_ID }
 };
@@ -73,9 +100,11 @@ void bl2_plat_mboot_init(void)
 	uint8_t *event_log_start;
 	uint8_t *event_log_finish;
 	size_t bl1_event_log_size;
+	size_t event_log_max_size;
 	int rc;
 
-	rc = arm_get_tb_fw_info(&event_log_base, &bl1_event_log_size);
+	rc = arm_get_tb_fw_info(&event_log_base, &bl1_event_log_size,
+				&event_log_max_size);
 	if (rc != 0) {
 		ERROR("%s(): Unable to get Event Log info from TB_FW_CONFIG\n",
 		      __func__);
@@ -94,11 +123,11 @@ void bl2_plat_mboot_init(void)
 	event_log_start = (uint8_t *)((uintptr_t)event_log_base +
 				      bl1_event_log_size);
 	event_log_finish = (uint8_t *)((uintptr_t)event_log_base +
-				       PLAT_ARM_EVENT_LOG_MAX_SIZE);
+				       event_log_max_size);
 
 	event_log_init((uint8_t *)event_log_start, event_log_finish);
 
-	rss_measured_boot_init();
+	rss_measured_boot_init(fvp_rss_mboot_metadata);
 }
 
 int plat_mboot_measure_critical_data(unsigned int critical_data_id,
@@ -113,7 +142,8 @@ int plat_mboot_measure_critical_data(unsigned int critical_data_id,
 
 	/* Calculate image hash and record data in Event Log */
 	int err = event_log_measure_and_record((uintptr_t)base, (uint32_t)size,
-					       critical_data_id);
+					       critical_data_id,
+					       fvp_event_log_metadata);
 	if (err != 0) {
 		ERROR("%s%s critical data (%i)\n",
 		      "Failed to ", "record",  err);
@@ -182,9 +212,19 @@ void bl2_plat_mboot_finish(void)
 
 	event_log_cur_size = event_log_get_cur_size((uint8_t *)event_log_base);
 
+#if defined(SPD_tspd) || defined(SPD_opteed) || defined(SPD_spmd)
+	/* Copy Event Log to TZC secured DRAM memory */
+	(void)memcpy((void *)ARM_EVENT_LOG_DRAM1_BASE,
+		     (const void *)event_log_base,
+		     event_log_cur_size);
+
+	/* Ensure that the Event Log is visible in TZC secured DRAM memory */
+	flush_dcache_range(ARM_EVENT_LOG_DRAM1_BASE, event_log_cur_size);
+#endif /* defined(SPD_tspd) || defined(SPD_opteed) || defined(SPD_spmd) */
+
 	rc = arm_set_nt_fw_info(
 #ifdef SPD_opteed
-			    (uintptr_t)event_log_base,
+			    (uintptr_t)ARM_EVENT_LOG_DRAM1_BASE,
 #endif
 			    event_log_cur_size, &ns_log_addr);
 	if (rc != 0) {
@@ -209,7 +249,7 @@ void bl2_plat_mboot_finish(void)
 
 #if defined(SPD_tspd) || defined(SPD_spmd)
 	/* Set Event Log data in TOS_FW_CONFIG */
-	rc = arm_set_tos_fw_info((uintptr_t)event_log_base,
+	rc = arm_set_tos_fw_info((uintptr_t)ARM_EVENT_LOG_DRAM1_BASE,
 				 event_log_cur_size);
 	if (rc != 0) {
 		ERROR("%s(): Unable to update %s_FW_CONFIG\n",

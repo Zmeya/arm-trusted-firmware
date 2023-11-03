@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -15,7 +15,7 @@
 #define ZYNQMP_CONSOLE_ID_cadence1	2
 #define ZYNQMP_CONSOLE_ID_dcc		3
 
-#define ZYNQMP_CONSOLE_IS(con)	(ZYNQMP_CONSOLE_ID_ ## con == ZYNQMP_CONSOLE)
+#define CONSOLE_IS(con)	(ZYNQMP_CONSOLE_ID_ ## con == ZYNQMP_CONSOLE)
 
 /* Default counter frequency */
 #define ZYNQMP_DEFAULT_COUNTER_FREQ	0U
@@ -135,7 +135,8 @@
 #define ARM_IRQ_SEC_SGI_6		14
 #define ARM_IRQ_SEC_SGI_7		15
 
-#define MAX_INTR_EL3			128
+/* number of interrupt handlers. increase as required */
+#define MAX_INTR_EL3			2
 
 /*******************************************************************************
  * UART related constants
@@ -143,19 +144,16 @@
 #define ZYNQMP_UART0_BASE		U(0xFF000000)
 #define ZYNQMP_UART1_BASE		U(0xFF010000)
 
-#if ZYNQMP_CONSOLE_IS(cadence) || ZYNQMP_CONSOLE_IS(dcc)
-# define ZYNQMP_UART_BASE	ZYNQMP_UART0_BASE
-#elif ZYNQMP_CONSOLE_IS(cadence1)
-# define ZYNQMP_UART_BASE	ZYNQMP_UART1_BASE
+#if CONSOLE_IS(cadence) || CONSOLE_IS(dcc)
+# define UART_BASE	ZYNQMP_UART0_BASE
+#elif CONSOLE_IS(cadence1)
+# define UART_BASE	ZYNQMP_UART1_BASE
 #else
 # error "invalid ZYNQMP_CONSOLE"
 #endif
 
-#define ZYNQMP_CRASH_UART_BASE		ZYNQMP_UART_BASE
-/* impossible to call C routine how it is done now - hardcode any value */
-#define ZYNQMP_CRASH_UART_CLK_IN_HZ	100000000 /* FIXME */
 /* Must be non zero */
-#define ZYNQMP_UART_BAUDRATE		115200
+#define UART_BAUDRATE		115200
 
 /* Silicon version detection */
 #define ZYNQMP_SILICON_VER_MASK		0xF000
@@ -163,40 +161,40 @@
 #define ZYNQMP_CSU_VERSION_SILICON	0
 #define ZYNQMP_CSU_VERSION_QEMU		3
 
-#define ZYNQMP_RTL_VER_MASK		0xFF0
+#define ZYNQMP_RTL_VER_MASK		0xFF0U
 #define ZYNQMP_RTL_VER_SHIFT		4
 
-#define ZYNQMP_PS_VER_MASK		0xF
+#define ZYNQMP_PS_VER_MASK		0xFU
 #define ZYNQMP_PS_VER_SHIFT		0
 
 #define ZYNQMP_CSU_BASEADDR		U(0xFFCA0000)
-#define ZYNQMP_CSU_IDCODE_OFFSET	0x40
+#define ZYNQMP_CSU_IDCODE_OFFSET	0x40U
 
-#define ZYNQMP_CSU_IDCODE_XILINX_ID_SHIFT	0
-#define ZYNQMP_CSU_IDCODE_XILINX_ID_MASK	(0xFFF << \
+#define ZYNQMP_CSU_IDCODE_XILINX_ID_SHIFT	0U
+#define ZYNQMP_CSU_IDCODE_XILINX_ID_MASK	(0xFFFU << \
 					ZYNQMP_CSU_IDCODE_XILINX_ID_SHIFT)
 #define ZYNQMP_CSU_IDCODE_XILINX_ID		0x093
 
-#define ZYNQMP_CSU_IDCODE_SVD_SHIFT		12
-#define ZYNQMP_CSU_IDCODE_SVD_MASK		(0x7 << \
+#define ZYNQMP_CSU_IDCODE_SVD_SHIFT		12U
+#define ZYNQMP_CSU_IDCODE_SVD_MASK		(0x7U << \
 						 ZYNQMP_CSU_IDCODE_SVD_SHIFT)
-#define ZYNQMP_CSU_IDCODE_DEVICE_CODE_SHIFT	15
-#define ZYNQMP_CSU_IDCODE_DEVICE_CODE_MASK	(0xF << \
+#define ZYNQMP_CSU_IDCODE_DEVICE_CODE_SHIFT	15U
+#define ZYNQMP_CSU_IDCODE_DEVICE_CODE_MASK	(0xFU << \
 					ZYNQMP_CSU_IDCODE_DEVICE_CODE_SHIFT)
-#define ZYNQMP_CSU_IDCODE_SUB_FAMILY_SHIFT	19
-#define ZYNQMP_CSU_IDCODE_SUB_FAMILY_MASK	(0x3 << \
+#define ZYNQMP_CSU_IDCODE_SUB_FAMILY_SHIFT	19U
+#define ZYNQMP_CSU_IDCODE_SUB_FAMILY_MASK	(0x3U << \
 					ZYNQMP_CSU_IDCODE_SUB_FAMILY_SHIFT)
-#define ZYNQMP_CSU_IDCODE_FAMILY_SHIFT		21
-#define ZYNQMP_CSU_IDCODE_FAMILY_MASK		(0x7F << \
+#define ZYNQMP_CSU_IDCODE_FAMILY_SHIFT		21U
+#define ZYNQMP_CSU_IDCODE_FAMILY_MASK		(0x7FU << \
 					ZYNQMP_CSU_IDCODE_FAMILY_SHIFT)
 #define ZYNQMP_CSU_IDCODE_FAMILY		0x23
 
-#define ZYNQMP_CSU_IDCODE_REVISION_SHIFT	28
-#define ZYNQMP_CSU_IDCODE_REVISION_MASK		(0xF << \
+#define ZYNQMP_CSU_IDCODE_REVISION_SHIFT	28U
+#define ZYNQMP_CSU_IDCODE_REVISION_MASK		(0xFU << \
 					ZYNQMP_CSU_IDCODE_REVISION_SHIFT)
-#define ZYNQMP_CSU_IDCODE_REVISION		0
+#define ZYNQMP_CSU_IDCODE_REVISION		0U
 
-#define ZYNQMP_CSU_VERSION_OFFSET	0x44
+#define ZYNQMP_CSU_VERSION_OFFSET	0x44U
 
 /* Efuse */
 #define EFUSE_BASEADDR		U(0xFFCC0000)
@@ -352,7 +350,7 @@
 #define RESTART_SCOPE_SHIFT			(3)
 #define RESTART_SCOPE_MASK			(0x3U << RESTART_SCOPE_SHIFT)
 
-/*AFI registers */
+/* AFI registers */
 #define  AFIFM6_WRCTRL		U(13)
 #define  FABRIC_WIDTH		U(3)
 

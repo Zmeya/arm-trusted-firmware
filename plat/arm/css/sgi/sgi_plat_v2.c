@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2021-2023, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -54,10 +54,10 @@ const mmap_region_t plat_arm_mmap[] = {
 #if ARM_BL31_IN_DRAM
 	ARM_MAP_BL31_SEC_DRAM,
 #endif
-#if SPM_MM
+#if SPM_MM || (SPMC_AT_EL3 && SPMC_AT_EL3_SEL0_SP)
 	ARM_SP_IMAGE_MMAP,
 #endif
-#if TRUSTED_BOARD_BOOT && !BL2_AT_EL3
+#if TRUSTED_BOARD_BOOT && !RESET_TO_BL2
 	ARM_MAP_BL1_RW,
 #endif
 	{0}
@@ -73,7 +73,7 @@ const mmap_region_t plat_arm_mmap[] = {
 	CSS_SGI_MAP_DEVICE,
 	SOC_PLATFORM_PERIPH_MAP_DEVICE,
 	SOC_SYSTEM_PERIPH_MAP_DEVICE,
-#if SPM_MM
+#if SPM_MM || (SPMC_AT_EL3 && SPMC_AT_EL3_SEL0_SP)
 	ARM_SPM_BUF_EL3_MMAP,
 #endif
 	{0}
@@ -83,9 +83,13 @@ const mmap_region_t plat_arm_mmap[] = {
 const mmap_region_t plat_arm_secure_partition_mmap[] = {
 	PLAT_ARM_SECURE_MAP_SYSTEMREG,
 	PLAT_ARM_SECURE_MAP_NOR2,
+	SOC_PLATFORM_SECURE_UART,
 	SOC_PLATFORM_PERIPH_MAP_DEVICE_USER,
 	ARM_SP_IMAGE_MMAP,
 	ARM_SP_IMAGE_NS_BUF_MMAP,
+#if ENABLE_FEAT_RAS && FFH_SUPPORT
+	CSS_SGI_SP_CPER_BUF_MMAP,
+#endif
 	ARM_SP_IMAGE_RW_MMAP,
 	ARM_SPM_BUF_EL0_MMAP,
 	{0}
